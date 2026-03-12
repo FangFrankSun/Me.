@@ -1,20 +1,32 @@
+import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet, Switch, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 
+import { useAuth } from '@/components/app/auth-context';
 import { AppCard, CardTitle, ScreenShell, SectionLabel } from '@/components/app/screen-shell';
 
 export default function SettingsScreen() {
+  const router = useRouter();
+  const { user, signOut } = useAuth();
   const [reminders, setReminders] = useState(true);
   const [sync, setSync] = useState(true);
   const [focusMode, setFocusMode] = useState(false);
+
+  const onSignOut = () => {
+    signOut();
+    router.replace('/login');
+  };
 
   return (
     <ScreenShell title="Settings" subtitle="Personalize your experience.">
       <AppCard delay={90}>
         <SectionLabel text="Profile" />
         <CardTitle accent="#4F46E5" icon="person" title="You" />
-        <Text style={styles.name}>Bigclaw</Text>
-        <Text style={styles.email}>you@example.com</Text>
+        <Text style={styles.name}>{user?.name ?? 'User'}</Text>
+        <Text style={styles.email}>{user?.email ?? 'unknown@example.com'}</Text>
+        <Pressable onPress={onSignOut} style={styles.logoutButton}>
+          <Text style={styles.logoutButtonText}>Log Out</Text>
+        </Pressable>
       </AppCard>
 
       <AppCard delay={160}>
@@ -60,6 +72,19 @@ const styles = StyleSheet.create({
   email: {
     fontSize: 14,
     color: '#66708B',
+  },
+  logoutButton: {
+    marginTop: 6,
+    alignSelf: 'flex-start',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: '#E9EEFF',
+  },
+  logoutButtonText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#2F52D0',
   },
   settingRow: {
     flexDirection: 'row',

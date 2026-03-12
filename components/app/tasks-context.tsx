@@ -1,5 +1,7 @@
 import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
 
+import { useAuth } from './auth-context';
+
 export type TaskCategory = {
   id: string;
   name: string;
@@ -47,7 +49,12 @@ type TasksContextValue = {
   toggleTaskDone: (taskId: string) => void;
 };
 
-const initialCategories: TaskCategory[] = [
+type UserTaskData = {
+  categories: TaskCategory[];
+  tasks: TaskItem[];
+};
+
+const seedCategories: TaskCategory[] = [
   { id: 'cat-work', name: 'Work', color: '#4C6FFF' },
   { id: 'cat-health', name: 'Health', color: '#17A673' },
   { id: 'cat-life', name: 'Personal', color: '#FF8A4C' },
@@ -59,38 +66,47 @@ function todayAt(hour: number, minute: number) {
   return date.toISOString();
 }
 
-const initialTasks: TaskItem[] = [
-  {
-    id: 'task-1',
-    title: 'Ship sprint recap',
-    notes: 'Share highlights in team channel',
-    categoryId: 'cat-work',
-    scheduledAt: todayAt(9, 30),
-    repeatable: false,
-    done: true,
-    createdAt: Date.now() - 10000,
-  },
-  {
-    id: 'task-2',
-    title: 'Plan tomorrow routine',
-    notes: 'Set priorities before lunch',
-    categoryId: 'cat-life',
-    scheduledAt: todayAt(13, 15),
-    repeatable: true,
-    done: false,
-    createdAt: Date.now() - 9000,
-  },
-  {
-    id: 'task-3',
-    title: '20-minute deep stretch',
-    notes: 'Lower back + hamstrings',
-    categoryId: 'cat-health',
-    scheduledAt: todayAt(20, 0),
-    repeatable: true,
-    done: false,
-    createdAt: Date.now() - 8000,
-  },
-];
+function buildInitialTasks(): TaskItem[] {
+  return [
+    {
+      id: 'task-1',
+      title: 'Ship sprint recap',
+      notes: 'Share highlights in team channel',
+      categoryId: 'cat-work',
+      scheduledAt: todayAt(9, 30),
+      repeatable: false,
+      done: true,
+      createdAt: Date.now() - 10000,
+    },
+    {
+      id: 'task-2',
+      title: 'Plan tomorrow routine',
+      notes: 'Set priorities before lunch',
+      categoryId: 'cat-life',
+      scheduledAt: todayAt(13, 15),
+      repeatable: true,
+      done: false,
+      createdAt: Date.now() - 9000,
+    },
+    {
+      id: 'task-3',
+      title: '20-minute deep stretch',
+      notes: 'Lower back + hamstrings',
+      categoryId: 'cat-health',
+      scheduledAt: todayAt(20, 0),
+      repeatable: true,
+      done: false,
+      createdAt: Date.now() - 8000,
+    },
+  ];
+}
+
+function buildInitialTaskData(): UserTaskData {
+  return {
+    categories: seedCategories.map((category) => ({ ...category })),
+    tasks: buildInitialTasks(),
+  };
+}
 
 const TasksContext = createContext<TasksContextValue | null>(null);
 
@@ -103,8 +119,32 @@ function normalizedTimestamp(value: string) {
 }
 
 export function TasksProvider({ children }: { children: ReactNode }) {
-  const [categories, setCategories] = useState(initialCategories);
-  const [tasks, setTasks] = useState(initialTasks);
+  const { user } = useAuth();
+  const [taskDataByUserId, setTaskDataByUserId] = useState<Record<string, UserTaskData>>({});
+
+  const currentData = useMemo(() => {
+    if (!user) {
+      return buildInitialTaskData();
+    }
+    return taskDataByUserId[user.id] ?? buildInitialTaskData();
+  }, [taskDataByUserId, user]);
+
+  const categories = currentData.categories;
+  const tasks = currentData.tasks;
+
+  const updateCurrentUserData = (updater: (current: UserTaskData) => UserTaskData) => {
+    if (!user) {
+      return;
+    }
+
+    setTaskDataByUserId((prev) => {
+      const current = prev[user.id] ?? buildInitialTaskData();
+      return {
+        ...prev,
+        [user.id]: updater(current),
+      };
+    });
+  };
 
   const addCategory = (name: string, color: string) => {
     const normalizedName = name.trim();
@@ -128,7 +168,10 @@ export function TasksProvider({ children }: { children: ReactNode }) {
       color,
     };
 
-    setCategories((prev) => [...prev, nextCategory]);
+    updateCurrentUserData((current) => ({
+      ...current,
+      categories: [...current.categories, nextCategory],
+    }));
     return id;
   };
 
@@ -143,12 +186,12 @@ export function TasksProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    setCategories((prev) => prev.filter((category) => category.id !== categoryId));
-    setTasks((prev) =>
-      prev.map((task) =>
+    updateCurrentUserData((current) => ({
+      categories: current.categories.filter((category) => category.id !== categoryId),
+      tasks: current.tasks.map((task) =>
         task.categoryId === categoryId ? { ...task, categoryId: fallback.id } : task
-      )
-    );
+      ),
+    }));
   };
 
   const addTask = (draft: TaskDraftInput) => {
@@ -163,12 +206,16 @@ export function TasksProvider({ children }: { children: ReactNode }) {
       createdAt: Date.now(),
     };
 
-    setTasks((prev) => [newTask, ...prev]);
+    updateCurrentUserData((current) => ({
+      ...current,
+      tasks: [newTask, ...current.tasks],
+    }));
   };
 
   const updateTask = (taskId: string, draft: TaskDraftInput) => {
-    setTasks((prev) =>
-      prev.map((task) =>
+    updateCurrentUserData((current) => ({
+      ...current,
+      tasks: current.tasks.map((task) =>
         task.id === taskId
           ? {
               ...task,
@@ -179,14 +226,15 @@ export function TasksProvider({ children }: { children: ReactNode }) {
               repeatable: draft.repeatable,
             }
           : task
-      )
-    );
+      ),
+    }));
   };
 
   const toggleTaskDone = (taskId: string) => {
-    setTasks((prev) =>
-      prev.map((task) => (task.id === taskId ? { ...task, done: !task.done } : task))
-    );
+    updateCurrentUserData((current) => ({
+      ...current,
+      tasks: current.tasks.map((task) => (task.id === taskId ? { ...task, done: !task.done } : task)),
+    }));
   };
 
   const calendarEvents = useMemo(() => {
