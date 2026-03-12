@@ -2,6 +2,29 @@
 
 This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
 
+## Supabase Auth Setup
+
+This app uses Supabase for sign in/sign up.
+
+1. Create a Supabase project.
+2. In Supabase dashboard, copy:
+   - Project URL
+   - Anon public key
+3. Create a local env file from `.env.example`:
+
+   ```bash
+   cp .env.example .env
+   ```
+
+4. Fill `.env`:
+
+   ```bash
+   EXPO_PUBLIC_SUPABASE_URL=...
+   EXPO_PUBLIC_SUPABASE_ANON_KEY=...
+   ```
+
+5. Restart Expo after changing env vars.
+
 ## Get started
 
 1. Install dependencies

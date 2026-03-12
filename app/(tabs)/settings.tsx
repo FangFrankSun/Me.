@@ -12,8 +12,8 @@ export default function SettingsScreen() {
   const [sync, setSync] = useState(true);
   const [focusMode, setFocusMode] = useState(false);
 
-  const onSignOut = () => {
-    signOut();
+  const onSignOut = async () => {
+    await signOut();
     router.replace('/login');
   };
 

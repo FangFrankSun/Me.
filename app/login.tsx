@@ -15,23 +15,37 @@ export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const submit = () => {
+  const submit = async () => {
+    setIsSubmitting(true);
+    setError('');
+    setMessage('');
+
     const result =
-      mode === 'signin' ? signIn(email, password) : signUp(name, email, password);
+      mode === 'signin' ? await signIn(email, password) : await signUp(name, email, password);
 
     if (!result.ok) {
       setError(result.error);
+      setIsSubmitting(false);
       return;
     }
 
-    setError('');
+    if (result.message) {
+      setMessage(result.message);
+      setIsSubmitting(false);
+      return;
+    }
+
+    setIsSubmitting(false);
     router.replace('/(tabs)/tasks');
   };
 
   const switchMode = (nextMode: AuthMode) => {
     setMode(nextMode);
     setError('');
+    setMessage('');
   };
 
   return (
@@ -88,9 +102,12 @@ export default function LoginScreen() {
         />
 
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
+        {message ? <Text style={styles.messageText}>{message}</Text> : null}
 
-        <Pressable onPress={submit} style={styles.primaryButton}>
-          <Text style={styles.primaryButtonText}>{mode === 'signin' ? 'Log In' : 'Create Account'}</Text>
+        <Pressable onPress={submit} style={styles.primaryButton} disabled={isSubmitting}>
+          <Text style={styles.primaryButtonText}>
+            {isSubmitting ? 'Please wait...' : mode === 'signin' ? 'Log In' : 'Create Account'}
+          </Text>
         </Pressable>
       </View>
     </View>
@@ -178,6 +195,11 @@ const styles = StyleSheet.create({
   errorText: {
     fontSize: 13,
     color: '#D63652',
+    marginTop: -2,
+  },
+  messageText: {
+    fontSize: 13,
+    color: '#1C7B4F',
     marginTop: -2,
   },
   primaryButton: {
